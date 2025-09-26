@@ -7,6 +7,18 @@ CREATE TABLE IF NOT EXISTS name_basics (
     primary_profession TEXT,
     known_for_titles TEXT
 );
+CREATE TABLE IF NOT EXISTS title_akas (
+    title_id TEXT,             -- corresponds to tconst
+    ordering INTEGER,
+    title TEXT,
+    region TEXT,
+    language TEXT,
+    types TEXT,
+    attributes TEXT,
+    is_original_title BOOLEAN,
+    PRIMARY KEY (title_id, ordering)
+);
+
 
 CREATE TABLE IF NOT EXISTS title_basics (
     tconst TEXT PRIMARY KEY,
@@ -60,6 +72,8 @@ CREATE INDEX IF NOT EXISTS idx_title_principals_nconst ON title_principals(ncons
 CREATE INDEX IF NOT EXISTS idx_title_ratings_rating ON title_ratings(average_rating);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_user_id ON user_feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_movie_id ON user_feedback(movie_id);
+CREATE INDEX IF NOT EXISTS idx_title_akas_title ON title_akas(title);
+CREATE INDEX IF NOT EXISTS idx_title_akas_region ON title_akas(region);
 
 -- Enable pg_trgm extension for better text search
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
