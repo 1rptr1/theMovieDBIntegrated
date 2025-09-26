@@ -1,0 +1,140 @@
+# Server configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+    min-response-size: 1024
+
+# Spring application settings
+spring:
+  application:
+    name: imdb-integrated
+  
+  # Database configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/imdb
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      auto-commit: false
+    initialization-mode: always
+    platform: postgresql
+    
+  # JPA/Hibernate settings (not used directly, but good to have)
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+  
+  # Web configuration
+  web:
+    resources:
+      cache:
+        period: 3600
+  
+  # Actuator endpoints
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info,metrics
+    endpoint:
+      health:
+        show-details: always
+    health:
+      db:
+        enabled: true
+
+# Application specific properties
+app:
+  database:
+    migration:
+      enabled: true
+  
+  # OMDB API configuration
+  omdb:
+    api:
+      key: ${OMDB_API_KEY:your-omdb-api-key}
+      url: http://www.omdbapi.com/
+      timeout: 5000
+  
+  # Caching configuration
+  cache:
+    enabled: true
+    ttl: 3600  # 1 hour
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.integrated.imdb: DEBUG
+    org.springframework.jdbc.core.JdbcTemplate: WARN
+    org.springframework.jdbc.core.StatementCreatorUtils: WARN
+  file:
+    name: logs/application.log
+    max-size: 10MB
+    max-history: 7
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Swagger/OpenAPI configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    doc-expansion: none
+  show-actuator: true
+
+# Actuator endpoint configuration
+management:
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.75,0.95,0.99
+
+# Custom application properties
+application:
+  version: 1.0.0
+  environment: development
+  cors:
+    allowed-origins: "*"
+    allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
+    allowed-headers: "*"
+    max-age: 3600

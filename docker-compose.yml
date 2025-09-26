@@ -1,0 +1,60 @@
+services:
+  db:
+    build: .
+    image: themoviedb-postgres
+    container_name: imdb_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-imdb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-imdb}
+      POSTGRES_DB: ${POSTGRES_DB:-imdb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init-scripts:/docker-entrypoint-initdb.d
+      - ./queries:/queries
+      - ./data:/imdb_data
+    command: [
+      "postgres",
+      "-c", "shared_buffers=512MB",
+      "-c", "work_mem=64MB", 
+      "-c", "maintenance_work_mem=512MB",
+      "-c", "max_wal_size=2GB",
+      "-c", "min_wal_size=1GB",
+      "-c", "checkpoint_completion_target=0.9",
+      "-c", "fsync=off",
+      "-c", "synchronous_commit=off",
+      "-c", "full_page_writes=off"
+    ]
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-imdb}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: openjdk:17-jdk-slim
+    container_name: movie-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-imdb}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-imdb}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-imdb}
+      OMDB_API_KEY: ${OMDB_API_KEY}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./target:/app
+    working_dir: /app
+    command: ["java", "-jar", "theMovieDBIntegrated-0.0.1-SNAPSHOT.jar"]
+    restart: unless-stopped
+
+volumes:
+  imdb_data:
