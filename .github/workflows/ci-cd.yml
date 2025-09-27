@@ -39,11 +39,15 @@ jobs:
 
       - name: Load IMDb data directly into Postgres
         run: |
+          mkdir -p data
           for file in name.basics title.akas title.basics title.crew title.episode title.principals title.ratings; do
             tbl=$(basename "$file" .tsv | tr '.' '_')
-            echo "📊 Loading $tbl..."
-            wget -qO- "https://datasets.imdbws.com/$file.tsv.gz" | gunzip | \
-            psql -h localhost -U imdb -d imdb -c "\COPY $tbl FROM STDIN WITH (FORMAT text, DELIMITER E'\t', NULL '\N', HEADER true)"
+            echo "📊 Downloading and loading $tbl..."
+            wget -q "https://datasets.imdbws.com/$file.tsv.gz" -O "data/$file.tsv.gz"
+            gunzip -f "data/$file.tsv.gz"
+            psql -h localhost -U imdb -d imdb -c "\COPY $tbl FROM 'data/$file.tsv' WITH (FORMAT text, DELIMITER E'\t', NULL '\N', HEADER true)"
+            rm -f "data/$file.tsv"
+            echo "✅ $tbl loaded and file deleted."
           done
         env:
           PGPASSWORD: imdb
