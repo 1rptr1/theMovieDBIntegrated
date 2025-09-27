@@ -33,7 +33,7 @@ jobs:
           sudo rm -rf /var/lib/apt/lists/*
 
       - name: Initialize Schema
-        run: psql -h localhost -U imdb -d imdb -f ./data/loader.sql
+        run: psql -h localhost -U imdb -d imdb -f ./src/main/resources/db/migration/V1__Initial_Schema.sql
         env:
           PGPASSWORD: imdb
 
