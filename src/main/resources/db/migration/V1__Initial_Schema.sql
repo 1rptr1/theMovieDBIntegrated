@@ -34,7 +34,11 @@ CREATE TABLE IF NOT EXISTS title_basics (
     runtime_minutes INTEGER,
     genres TEXT
 );
-
+CREATE TABLE IF NOT EXISTS title_crew (
+    tconst TEXT PRIMARY KEY,    -- movie/show id
+    directors TEXT,             -- comma-separated nconst values
+    writers TEXT                -- comma-separated nconst values
+);
 CREATE TABLE IF NOT EXISTS title_principals (
     tconst TEXT,
     ordering INTEGER,
@@ -83,7 +87,8 @@ CREATE INDEX IF NOT EXISTS idx_user_feedback_user_id ON user_feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_movie_id ON user_feedback(movie_id);
 CREATE INDEX IF NOT EXISTS idx_title_akas_title ON title_akas(title);
 CREATE INDEX IF NOT EXISTS idx_title_akas_region ON title_akas(region);
-
+CREATE INDEX IF NOT EXISTS idx_title_crew_directors ON title_crew(directors);
+CREATE INDEX IF NOT EXISTS idx_title_crew_writers ON title_crew(writers);
 -- ===========================================
 -- Extensions
 -- ===========================================
