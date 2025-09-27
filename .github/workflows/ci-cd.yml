@@ -111,10 +111,12 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: imdb
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
 
+      - name: Wait for server
+        run: |
+          echo "Waiting for API..."
+          until curl -s http://localhost:8080/api/movies/health; do sleep 5; done
       - name: Run API smoke tests
         run: |
-          echo "🔍 Health Check"
-          curl -f http://localhost:8080/api/movies/health
 
           echo "🎬 Search by title"
           curl -f "http://localhost:8080/api/movies?title=inception&page=0&size=5"
