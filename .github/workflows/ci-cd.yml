@@ -41,30 +41,44 @@ jobs:
         run: |
           mkdir -p data
           for file in name.basics title.akas title.basics title.crew title.episode title.principals title.ratings; do
-          tbl=$(basename "$file" .tsv | tr '.' '_')
-          echo "📊 Downloading and loading $tbl..."
+           tbl=$(basename "$file" .tsv | tr '.' '_')
+           echo "📊 Downloading and loading $tbl..."
           
-          # Download and unzip
-          wget -q "https://datasets.imdbws.com/$file.tsv.gz" -O "data/$file.tsv.gz"
-          gunzip -f "data/$file.tsv.gz"
+           # Download and unzip
+           wget -q "https://datasets.imdbws.com/$file.tsv.gz" -O "data/$file.tsv.gz"
+           gunzip -f "data/$file.tsv"
           
-          # Check if table exists
-          table_exists=$(psql -h localhost -U imdb -d imdb -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='$tbl');")
-          if [ "$table_exists" = "t" ]; then
-          # Truncate table to avoid duplicates
-          psql -h localhost -U imdb -d imdb -c "TRUNCATE TABLE $tbl;"
+           # Check if table exists
+           if psql -h localhost -U imdb -d imdb -tc "SELECT to_regclass('$tbl');" | grep -q "$tbl"; then
           
-          # Load data
-          psql -h localhost -U imdb -d imdb -c "\COPY $tbl FROM 'data/$file.tsv' WITH (FORMAT text, DELIMITER E'\t', NULL '\N', HEADER true)"
-          echo "✅ $tbl loaded successfully."
-          else
-          echo "⚠️ Table $tbl does not exist, skipping."
-          fi
-          
-          # Delete file to save space
-          rm -f "data/$file.tsv"
-          echo "🗑 File deleted: $file.tsv"
-          done
+             # Handle title_principals separately to deduplicate
+             if [[ "$tbl" == "title_principals" ]]; then
+               echo "⚡ Deduplicating $tbl before insert..."
+               psql -h localhost -U imdb -d imdb -c "TRUNCATE TABLE $tbl;"
+               psql -h localhost -U imdb -d imdb -c "\
+              CREATE TEMP TABLE temp_$tbl AS TABLE $tbl WITH NO DATA;"
+              psql -h localhost -U imdb -d imdb -c "\
+              \COPY temp_$tbl FROM 'data/$file.tsv' WITH (FORMAT text, DELIMITER E'\t', NULL '\N', HEADER true);"
+              psql -h localhost -U imdb -d imdb -c "\
+              INSERT INTO $tbl (tconst, ordering, nconst, category, job, characters)
+              SELECT DISTINCT tconst, ordering, nconst, category, job, characters
+              FROM temp_$tbl
+              ON CONFLICT DO NOTHING;"
+              else
+              # Normal load for other tables
+              psql -h localhost -U imdb -d imdb -c "TRUNCATE TABLE $tbl;"
+              psql -h localhost -U imdb -d imdb -c "\COPY $tbl FROM 'data/$file.tsv' WITH (FORMAT text, DELIMITER E'\t', NULL '\N', HEADER true);"
+              fi
+              
+              echo "✅ $tbl loaded successfully."
+              else
+              echo "⚠️ Table $tbl does not exist, skipping."
+              fi
+              
+              # Delete TSV to save space
+              rm -f "data/$file.tsv"
+            echo "🗑 File deleted: $file.tsv"
+              done
         env:
           PGPASSWORD: imdb
 
