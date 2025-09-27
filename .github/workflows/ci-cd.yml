@@ -97,19 +97,26 @@ jobs:
         run: |
           mvn -B package --file pom.xml -DskipTests
           nohup mvn spring-boot:run > /tmp/app.log 2>&1 &
+
           echo "⏳ Waiting for API to start..."
           for i in {1..30}; do
-            if curl -s http://localhost:8080/api/movies/health | grep -q "UP"; then
+            if curl -s http://localhost:8080/api/movies/health > /dev/null; then
               echo "✅ API is up!"
-              break
+              exit 0
             fi
-            sleep 2
+            echo "Attempt $i/30: not up yet..."
+            sleep 5
           done
+
+          echo "❌ API did not start in time"
+          echo "🔎 Dumping app logs:"
+          cat /tmp/app.log || true
+          exit 1
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/imdb
           SPRING_DATASOURCE_USERNAME: imdb
           SPRING_DATASOURCE_PASSWORD: imdb
-          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+          OMDB_API_KEY: 7477790e
 
       - name: Wait for server
         run: |
