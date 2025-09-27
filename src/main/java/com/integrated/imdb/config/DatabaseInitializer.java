@@ -2,12 +2,14 @@ package com.integrated.imdb.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.springframework.boot.actuate.health.Health;
+import org.springframework.boot.actuate.health.Status;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
@@ -26,7 +28,8 @@ public class DatabaseInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseInitializer.class);
     
-    private final DataSource dataSource;
+    @Autowired
+    private DataSource dataSource;
     private final DatabaseHealthCheck databaseHealthCheck;
     
     // List of SQL scripts to execute in order

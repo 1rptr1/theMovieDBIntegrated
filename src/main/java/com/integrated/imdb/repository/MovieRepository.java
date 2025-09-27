@@ -50,19 +50,24 @@ public class MovieRepository {
     }
 
     /**
-     * Get top rated movies
+     * Get top rated movies with a minimum number of votes
+     * 
+     * @param limit Maximum number of movies to return
+     * @param minVotes Minimum number of votes a movie must have to be included
+     * @return List of top rated movies matching the criteria
      */
-    public List<Map<String, Object>> getTopRatedMovies(int limit) {
+    public List<Map<String, Object>> getTopRatedMovies(int limit, int minVotes) {
         String sql = """
             SELECT t.tconst, t.primaryTitle, t.startYear, t.genres, 
-                   r.averageRating, r.numVotes
+                   r.averageRating, r.numVotes, t.runtimeMinutes
             FROM title_basics t
             JOIN title_ratings r ON t.tconst = r.tconst
-            WHERE t.titleType = 'movie' AND r.numVotes > 10000
-            ORDER BY r.averageRating DESC
+            WHERE t.titleType = 'movie' 
+            AND r.numVotes >= ?
+            ORDER BY r.averageRating DESC, r.numVotes DESC
             LIMIT ?
             """;
-        return jdbcTemplate.queryForList(sql, limit);
+        return jdbcTemplate.queryForList(sql, minVotes, limit);
     }
 
     /**

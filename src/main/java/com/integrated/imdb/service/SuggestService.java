@@ -20,12 +20,10 @@ public class SuggestService {
     
     private final MovieService movieService;
     private final JdbcTemplate jdbcTemplate;
-    private final OmdbClient omdbClient;
 
-    public SuggestService(MovieService movieService, JdbcTemplate jdbcTemplate, OmdbClient omdbClient) {
+    public SuggestService(MovieService movieService, JdbcTemplate jdbcTemplate) {
         this.movieService = movieService;
         this.jdbcTemplate = jdbcTemplate;
-        this.omdbClient = omdbClient;
         initializeDatabase();
     }
 
@@ -169,88 +167,121 @@ public class SuggestService {
         return new SuggestResponse(userId, recommendations);
     }
     
+    /**
+     * Get personalized movie recommendations based on user preferences.
+     * 
+     * @param userId The ID of the user
+     * @param likedGenres Set of genres the user has shown interest in
+     * @param likedActors Set of actors the user has shown interest in
+     * @param likedMovies List of movie IDs the user has liked
+     * @return List of recommended movies
+     */
     private List<MovieDto> getPersonalizedRecommendations(String userId, 
                                                          Set<String> likedGenres, 
                                                          Set<String> likedActors,
                                                          List<String> likedMovies) {
-        // If we have both genres and actors, we can make a more targeted query
-        if (!likedGenres.isEmpty() && !likedActors.isEmpty()) {
-            // Create a query that finds movies with similar genres and actors
-            String genreCondition = String.join("|", likedGenres);
-            String actorCondition = String.join("|", likedActors);
-            
-            // Exclude already liked movies
-            String excludeCondition = likedMovies.isEmpty() ? "" : 
-                " AND t.tconst NOT IN ('" + String.join("','", likedMovies) + "')";
-            
-            // Build the query with dynamic parameters
-            String sql = """
-                WITH movie_scores AS (
+        try {
+            // If we have both genres and actors, we can make a more targeted query
+            if (!likedGenres.isEmpty() && !likedActors.isEmpty()) {
+                log.debug("Generating recommendations for user {} with {} liked genres and {} liked actors", 
+                         userId, likedGenres.size(), likedActors.size());
+                
+                // Exclude already liked movies
+                String excludeCondition = likedMovies.isEmpty() ? "" : 
+                    " AND t.tconst NOT IN ('" + String.join("','", likedMovies) + "')";
+                
+                // Build the query with dynamic parameters
+                String sql = """
+                    WITH movie_scores AS (
+                        SELECT 
+                            t.tconst,
+                            t.primaryTitle,
+                            t.startYear,
+                            t.genres,
+                            r.averageRating,
+                            r.numVotes,
+                            -- Score based on genre matches
+                            (SELECT COUNT(*) FROM unnest(string_to_array(?, ',')) as g 
+                             WHERE t.genres ILIKE '%' || g || '%') as genre_score,
+                            -- Score based on actor matches (simplified)
+                            (CASE WHEN EXISTS (
+                                SELECT 1 FROM title_principals tp 
+                                JOIN name_basics n ON tp.nconst = n.nconst 
+                                WHERE tp.tconst = t.tconst 
+                                AND n.primaryName ~* ?
+                            ) THEN 1 ELSE 0 END) as actor_score
+                        FROM title_basics t
+                        JOIN title_ratings r ON t.tconst = r.tconst
+                        WHERE t.titleType = 'movie'
+                        AND r.numVotes > 1000  -- Minimum votes threshold
+                        """ + excludeCondition + """
+                    )
                     SELECT 
-                        t.tconst,
-                        t.primaryTitle,
-                        t.startYear,
-                        t.genres,
-                        r.averageRating,
-                        r.numVotes,
-                        -- Score based on genre matches
-                        (SELECT COUNT(*) FROM unnest(string_to_array(?, ',')) as g 
-                         WHERE t.genres ILIKE '%' || g || '%') as genre_score,
-                        -- Score based on actor matches (simplified)
-                        (CASE WHEN EXISTS (
-                            SELECT 1 FROM title_principals tp 
-                            JOIN name_basics n ON tp.nconst = n.nconst 
-                            WHERE tp.tconst = t.tconst 
-                            AND n.primaryName ~* ?
-                        ) THEN 1 ELSE 0 END) as actor_score
-                    FROM title_basics t
-                    JOIN title_ratings r ON t.tconst = r.tconst
-                    WHERE t.titleType = 'movie'
-                    AND r.numVotes > 1000  -- Minimum votes threshold
-                    """ + excludeCondition + """
-                )
-                SELECT tconst, primaryTitle, startYear, genres, averageRating, numVotes
-                FROM movie_scores
-                WHERE genre_score > 0 OR actor_score > 0
-                ORDER BY (genre_score * 2 + actor_score * 3) * (averageRating * 0.1) DESC
-                LIMIT ?
-                """;
-            
-            // Execute the query with parameters
-            List<MovieDto> results = jdbcTemplate.query(
-                sql,
-                new Object[]{
-                    String.join(",", likedGenres),
-                    "^(" + String.join("|", likedActors) + ")$",
-                    20  // Limit
-                },
-                (rs, rowNum) -> {
-                    MovieDto dto = new MovieDto();
-                    dto.setTconst(rs.getString("tconst"));
-                    dto.setPrimaryTitle(rs.getString("primaryTitle"));
-                    dto.setStartYear(rs.getString("startYear"));
-                    dto.setGenres(rs.getString("genres"));
-                    dto.setAverageRating(rs.getDouble("averageRating"));
-                    dto.setNumVotes(rs.getInt("numVotes"));
-                    return dto;
-                }
-            );
-            
-            // Enrich with OMDb data
-            return results.stream()
-                .peek(movie -> {
-                    // Enrich with OMDb data
-                    Map<String, Object> omdbData = omdbClient.fetchMovieDetails(movie.getTconst());
-                    if (omdbData != null) {
-                        movie.setPlot((String) omdbData.getOrDefault("Plot", "Plot not available"));
-                        movie.setPoster((String) omdbData.getOrDefault("Poster", ""));
-                        movie.setRuntime((String) omdbData.getOrDefault("Runtime", ""));
-                    }
-                })
-                .collect(Collectors.toList());
-        } 
+                        ms.tconst, 
+                        ms.primaryTitle, 
+                        ms.startYear, 
+                        ms.genres, 
+                        ms.averageRating, 
+                        ms.numVotes, 
+                        COALESCE(tb.runtimeMinutes, 0) as runtimeMinutes
+                    FROM movie_scores ms
+                    LEFT JOIN title_basics tb ON ms.tconst = tb.tconst
+                    WHERE ms.genre_score > 0 OR ms.actor_score > 0
+                    ORDER BY (ms.genre_score * 2 + ms.actor_score * 3) * (ms.averageRating * 0.1) DESC
+                    LIMIT ?
+                    """;
+                
+                // Prepare query parameters
+                List<Object> queryParams = new ArrayList<>();
+                queryParams.add(String.join(",", likedGenres));  // Single string of comma-separated genres
+                queryParams.add(String.join("|", likedActors));  // Regex pattern for actor names
+                queryParams.add(20); // Limit results to 20
+                
+                log.debug("Executing recommendation query with params: {}", queryParams);
+                
+                // Execute the query with parameters
+                List<MovieDto> results = jdbcTemplate.query(
+                    sql,
+                    (rs, rowNum) -> {
+                        try {
+                            MovieDto movie = new MovieDto();
+                            movie.setTconst(rs.getString("tconst"));
+                            movie.setPrimaryTitle(rs.getString("primaryTitle"));
+                            movie.setStartYear(rs.getString("startYear"));
+                            movie.setGenres(rs.getString("genres"));
+                            movie.setAverageRating(rs.getDouble("averageRating"));
+                            movie.setNumVotes(rs.getInt("numVotes"));
+                            
+                            // Set runtime using the helper method
+                            int runtimeMinutes = rs.getInt("runtimeMinutes");
+                            movie.setRuntimeFromMinutes(runtimeMinutes);
+                            
+                            // Initialize other OMDb data
+                            movie.setPlot("Plot not available");
+                            movie.setPoster("");
+                            movie.setDirector("");
+                            movie.setCast("");
+                            
+                            return movie;
+                        } catch (Exception e) {
+                            log.error("Error mapping movie result: {}", e.getMessage(), e);
+                            return null;
+                        }
+                    },
+                    queryParams.toArray()
+                );
+                
+                // Filter out any null results from the mapping process
+                return results.stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            }
+        } catch (Exception e) {
+            log.error("Error generating personalized recommendations: {}", e.getMessage(), e);
+        }
         
-        // Fallback to top rated movies if we don't have enough preference data
+        // Fallback to top rated movies if we don't have enough preference data or an error occurs
+        log.info("Falling back to top-rated movies for user {}", userId);
         return movieService.getTopRatedMovies(20);
     }
     

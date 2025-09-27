@@ -4,11 +4,16 @@ import com.integrated.imdb.dto.MovieDto;
 import com.integrated.imdb.repository.MovieRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
+
+/**
+ * Service class for handling movie-related business logic.
+ * Provides methods for searching, filtering, and retrieving movie details.
+ */
 
 @Service
 public class MovieService {
@@ -17,10 +22,25 @@ public class MovieService {
 
     private final MovieRepository movieRepository;
     private final OmdbClient omdbClient;
+    
+    private static final int DEFAULT_MOVIE_LIMIT = 20;
+    /**
+     * Minimum number of votes a movie must have to be considered for recommendations.
+     * This helps filter out less popular or less rated movies.
+     */
+    private static final int MIN_VOTES_THRESHOLD = 1000; // Minimum votes to consider a movie for recommendations
 
+    /**
+     * Constructs a new MovieService with the required dependencies.
+     * 
+     * @param movieRepository The repository for movie data access
+     * @param omdbClient The client for OMDb API integration
+     */
+    @Autowired
     public MovieService(MovieRepository movieRepository, OmdbClient omdbClient) {
         this.movieRepository = movieRepository;
         this.omdbClient = omdbClient;
+        log.info("MovieService initialized with repository: {}", movieRepository != null ? "present" : "null");
     }
 
     /**
@@ -44,9 +64,17 @@ public class MovieService {
     /**
      * Get top rated movies with plot details
      */
+    /**
+     * Get top rated movies with plot details
+     * 
+     * @param limit Maximum number of movies to return
+     * @return List of top rated movies as DTOs
+     */
     public List<MovieDto> getTopRatedMovies(int limit) {
-        log.info("Fetching top {} rated movies", limit);
-        List<Map<String, Object>> movies = movieRepository.getTopRatedMovies(limit);
+        log.info("Fetching top {} rated movies with minimum {} votes", limit, MIN_VOTES_THRESHOLD);
+        // Ensure we don't exceed our default limit
+        int actualLimit = Math.min(limit, DEFAULT_MOVIE_LIMIT);
+        List<Map<String, Object>> movies = movieRepository.getTopRatedMovies(actualLimit, MIN_VOTES_THRESHOLD);
         return enrichMoviesWithOmdb(movies);
     }
 
@@ -149,20 +177,89 @@ public class MovieService {
     /**
      * Map database row to MovieDto
      */
+    /**
+     * Maps a database row to a MovieDto object.
+     * 
+     * @param row The database row as a map of column names to values
+     * @return A populated MovieDto object
+     */
     private MovieDto mapToMovieDto(Map<String, Object> row) {
+        if (row == null || row.isEmpty()) {
+            return null;
+        }
+        
         MovieDto dto = new MovieDto();
-        dto.setTconst((String) row.get("tconst"));
-        dto.setPrimaryTitle((String) row.get("primaryTitle"));
-        dto.setStartYear((String) row.get("startYear"));
-        dto.setGenres((String) row.get("genres"));
-        dto.setActorName((String) row.get("actorName"));
         
-        Object rating = row.get("averageRating");
-        dto.setAverageRating(rating != null ? ((Number) rating).doubleValue() : null);
+        // Basic movie information
+        dto.setTconst(getStringValue(row, "tconst"));
+        dto.setPrimaryTitle(getStringValue(row, "primaryTitle"));
+        dto.setStartYear(getStringValue(row, "startYear"));
+        dto.setGenres(getStringValue(row, "genres"));
+        dto.setActorName(getStringValue(row, "actorName"));
         
-        Object votes = row.get("numVotes");
-        dto.setNumVotes(votes != null ? ((Number) votes).intValue() : null);
+        // Ratings and votes
+        dto.setAverageRating(getDoubleValue(row, "averageRating"));
+        dto.setNumVotes(getIntegerValue(row, "numVotes"));
+        
+        // Handle runtime - can be either a string or an integer in the database
+        Object runtime = row.get("runtimeMinutes");
+        if (runtime != null) {
+            if (runtime instanceof Number) {
+                dto.setRuntimeFromMinutes(((Number) runtime).intValue());
+            } else if (runtime instanceof String) {
+                try {
+                    int minutes = Integer.parseInt(runtime.toString());
+                    dto.setRuntimeFromMinutes(minutes);
+                } catch (NumberFormatException e) {
+                    dto.setRuntime(runtime.toString());
+                }
+            }
+        }
         
         return dto;
+    }
+    
+    /**
+     * Helper method to safely get a string value from a map.
+     */
+    private String getStringValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        return value != null ? value.toString() : "";
+    }
+    
+    /**
+     * Helper method to safely get an integer value from a map.
+     */
+    private Integer getIntegerValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Helper method to safely get a double value from a map.
+     */
+    private Double getDoubleValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        try {
+            return Double.parseDouble(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

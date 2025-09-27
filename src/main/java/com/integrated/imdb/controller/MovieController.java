@@ -1,6 +1,9 @@
 package com.integrated.imdb.controller;
 
-import com.integrated.imdb.dto.*;
+import com.integrated.imdb.dto.MovieDto;
+import com.integrated.imdb.dto.StartRequest;
+import com.integrated.imdb.dto.FeedbackRequest;
+import com.integrated.imdb.dto.SuggestResponse;
 import com.integrated.imdb.service.MovieService;
 import com.integrated.imdb.service.SuggestService;
 import io.swagger.v3.oas.annotations.Operation;
