@@ -87,8 +87,11 @@ CREATE INDEX IF NOT EXISTS idx_user_feedback_user_id ON user_feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_movie_id ON user_feedback(movie_id);
 CREATE INDEX IF NOT EXISTS idx_title_akas_title ON title_akas(title);
 CREATE INDEX IF NOT EXISTS idx_title_akas_region ON title_akas(region);
-CREATE INDEX IF NOT EXISTS idx_title_crew_directors ON title_crew(directors);
-CREATE INDEX IF NOT EXISTS idx_title_crew_writers ON title_crew(writers);
+CREATE INDEX IF NOT EXISTS idx_title_crew_writers_gin
+    ON title_crew USING gin (writers gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_title_crew_directors_gin
+    ON title_crew USING gin (directors gin_trgm_ops);
 -- ===========================================
 -- Extensions
 -- ===========================================
