@@ -1,4 +1,7 @@
--- Create tables for IMDB data (if they don't exist)
+-- =====================================
+-- IMDB Tables
+-- =====================================
+
 CREATE TABLE IF NOT EXISTS name_basics (
     nconst TEXT PRIMARY KEY,
     primary_name TEXT,
@@ -36,7 +39,10 @@ CREATE TABLE IF NOT EXISTS title_ratings (
     num_votes INTEGER
 );
 
--- Create tables for recommendation system
+-- =====================================
+-- Recommendation System Tables
+-- =====================================
+
 CREATE TABLE IF NOT EXISTS user_preferences (
     user_id VARCHAR(50) PRIMARY KEY,
     preferences JSONB DEFAULT '{}'::jsonb,
@@ -53,7 +59,10 @@ CREATE TABLE IF NOT EXISTS user_feedback (
     UNIQUE(user_id, movie_id)
 );
 
--- Create indexes for better query performance
+-- =====================================
+-- Indexes
+-- =====================================
+
 CREATE INDEX IF NOT EXISTS idx_name_basics_primary_name ON name_basics(primary_name);
 CREATE INDEX IF NOT EXISTS idx_title_basics_primary_title ON title_basics(primary_title);
 CREATE INDEX IF NOT EXISTS idx_title_principals_nconst ON title_principals(nconst);
@@ -61,16 +70,18 @@ CREATE INDEX IF NOT EXISTS idx_title_ratings_rating ON title_ratings(average_rat
 CREATE INDEX IF NOT EXISTS idx_user_feedback_user_id ON user_feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_movie_id ON user_feedback(movie_id);
 
--- Enable pg_trgm extension for better text search
+-- Enable pg_trgm for text search
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- Create GIN indexes for text search
 CREATE INDEX IF NOT EXISTS idx_title_basics_gin ON title_basics USING GIN (primary_title gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_name_basics_gin ON name_basics USING GIN (primary_name gin_trgm_ops);
 
--- Create a materialized view for fast movie search
+-- =====================================
+-- Materialized View for Movie Search
+-- =====================================
+
 CREATE MATERIALIZED VIEW IF NOT EXISTS movie_search_view AS
-SELECT 
+SELECT
     tb.tconst,
     tb.primary_title,
     tb.original_title,
@@ -83,52 +94,60 @@ SELECT
     setweight(to_tsvector('english', tb.original_title), 'B') ||
     setweight(to_tsvector('english', tb.genres), 'C') ||
     setweight(to_tsvector('english', string_agg(n.primary_name, ' ')), 'D') AS search_vector
-FROM 
+FROM
     title_basics tb
-LEFT JOIN 
+LEFT JOIN
     title_ratings tr ON tb.tconst = tr.tconst
-LEFT JOIN 
+LEFT JOIN
     title_principals tp ON tb.tconst = tp.tconst
-LEFT JOIN 
+LEFT JOIN
     name_basics n ON tp.nconst = n.nconst
-WHERE 
+WHERE
     tb.title_type = 'movie'
-GROUP BY 
-    tb.tconst, tb.primary_title, tb.original_title, 
+GROUP BY
+    tb.tconst, tb.primary_title, tb.original_title,
     tb.start_year, tb.genres, tr.average_rating, tr.num_votes;
 
--- Create GIN index on the search vector
 CREATE INDEX IF NOT EXISTS idx_movie_search_vector ON movie_search_view USING GIN (search_vector);
 
+-- =====================================
+-- Functions & Triggers
+-- =====================================
 
--- Create a function to refresh the materialized view
-CREATE OR REPLACE FUNCTION refresh_movie_search()
-RETURNS VOID AS $$
+DROP FUNCTION IF EXISTS refresh_movie_search();
+CREATE FUNCTION refresh_movie_search()
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW movie_search_view;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
--- Create triggers to refresh the materialized view when data changes
-CREATE OR REPLACE FUNCTION trigger_refresh_movie_search()
-RETURNS TRIGGER AS $$
+DROP FUNCTION IF EXISTS trigger_refresh_movie_search();
+CREATE FUNCTION trigger_refresh_movie_search()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
 BEGIN
     PERFORM refresh_movie_search();
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
-
 CREATE TRIGGER refresh_movie_search_after_update
 AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE
 ON title_basics
 FOR EACH STATEMENT
 EXECUTE FUNCTION trigger_refresh_movie_search();
 
+-- =====================================
+-- Full-text search function
+-- =====================================
 
--- Create a function for full-text search
-CREATE OR REPLACE FUNCTION search_movies(query TEXT)
+DROP FUNCTION IF EXISTS search_movies(TEXT);
+CREATE FUNCTION search_movies(query TEXT)
 RETURNS TABLE (
     tconst TEXT,
     primary_title TEXT,
@@ -139,10 +158,12 @@ RETURNS TABLE (
     num_votes INTEGER,
     actors TEXT,
     rank FLOAT
-) AS $$
+)
+LANGUAGE plpgsql
+AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         msv.tconst,
         msv.primary_title,
         msv.original_title,
@@ -152,13 +173,13 @@ BEGIN
         msv.num_votes,
         msv.actors,
         ts_rank(msv.search_vector, websearch_to_tsquery('english', query)) AS rank
-    FROM 
+    FROM
         movie_search_view msv
-    WHERE 
+    WHERE
         msv.search_vector @@ websearch_to_tsquery('english', query)
-    ORDER BY 
+    ORDER BY
         rank DESC,
         msv.num_votes DESC
     LIMIT 100;
 END;
-$$ LANGUAGE plpgsql;
+$$;
