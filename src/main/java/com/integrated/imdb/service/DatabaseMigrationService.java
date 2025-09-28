@@ -138,7 +138,7 @@ public class DatabaseMigrationService {
             // Record the migration in the schema_version table
             jdbcTemplate.update("""
                 INSERT INTO schema_version 
-                    (version, description, script, execution_time, success)
+                    (version, description, script, success)
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 migration.getVersion(),
