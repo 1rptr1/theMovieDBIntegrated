@@ -144,7 +144,7 @@ public class DatabaseMigrationService {
                 migration.getVersion(),
                 migration.getDescription(),
                 migration.getFilename(),
-                executionTime,
+
                 success
             );
             
