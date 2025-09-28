@@ -100,21 +100,32 @@ GROUP BY
 -- Create GIN index on the search vector
 CREATE INDEX IF NOT EXISTS idx_movie_search_vector ON movie_search_view USING GIN (search_vector);
 
+
 -- Create a function to refresh the materialized view
 CREATE OR REPLACE FUNCTION refresh_movie_search()
-RETURNS TRIGGER AS $$
+RETURNS VOID AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY movie_search_view;
-    RETURN NULL;
+    REFRESH MATERIALIZED VIEW movie_search_view;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers to refresh the materialized view when data changes
-CREATE OR REPLACE TRIGGER refresh_movie_search_after_update
+CREATE OR REPLACE FUNCTION trigger_refresh_movie_search()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM refresh_movie_search();
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
+
+CREATE TRIGGER refresh_movie_search_after_update
 AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE
 ON title_basics
 FOR EACH STATEMENT
-EXECUTE FUNCTION refresh_movie_search();
+EXECUTE FUNCTION trigger_refresh_movie_search();
+
 
 -- Create a function for full-text search
 CREATE OR REPLACE FUNCTION search_movies(query TEXT)
