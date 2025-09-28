@@ -113,36 +113,43 @@ CREATE INDEX IF NOT EXISTS idx_movie_search_vector ON movie_search_view USING GI
 -- =====================================
 -- Functions & Triggers
 -- =====================================
+
 -- Function to refresh materialized view
-DROP FUNCTION IF EXISTS refresh_movie_search();
-CREATE OR REPLACE FUNCTION refresh_movie_search() RETURNS VOID AS '
+CREATE OR REPLACE FUNCTION refresh_movie_search()
+RETURNS VOID AS '
 BEGIN
     REFRESH MATERIALIZED VIEW movie_search_view;
 END;
 ' LANGUAGE plpgsql;
 
--- Trigger function wrapper
+-- Drop trigger first (safe cleanup)
+DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
+
+-- Drop trigger function if exists
 DROP FUNCTION IF EXISTS trigger_refresh_movie_search();
-CREATE OR REPLACE FUNCTION trigger_refresh_movie_search() RETURNS TRIGGER AS '
+
+-- Recreate trigger function
+CREATE OR REPLACE FUNCTION trigger_refresh_movie_search()
+RETURNS TRIGGER AS '
 BEGIN
     PERFORM refresh_movie_search();
     RETURN NULL;
 END;
 ' LANGUAGE plpgsql;
 
--- Drop previous trigger if exists
-DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
-
--- Create trigger on title_basics
+-- Recreate trigger
 CREATE TRIGGER refresh_movie_search_after_update
 AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE
 ON title_basics
 FOR EACH STATEMENT
 EXECUTE FUNCTION trigger_refresh_movie_search();
 
+-- =====================================
 -- Full-text search function
-DROP FUNCTION IF EXISTS search_movies(TEXT);
-CREATE OR REPLACE FUNCTION search_movies(query TEXT) RETURNS TABLE (
+-- =====================================
+
+CREATE OR REPLACE FUNCTION search_movies(query TEXT)
+RETURNS TABLE (
     tconst TEXT,
     primary_title TEXT,
     original_title TEXT,
@@ -165,9 +172,13 @@ BEGIN
         msv.num_votes,
         msv.actors,
         ts_rank(msv.search_vector, websearch_to_tsquery(''english'', query)) AS rank
-    FROM movie_search_view msv
-    WHERE msv.search_vector @@ websearch_to_tsquery(''english'', query)
-    ORDER BY rank DESC, msv.num_votes DESC
+    FROM
+        movie_search_view msv
+    WHERE
+        msv.search_vector @@ websearch_to_tsquery(''english'', query)
+    ORDER BY
+        rank DESC,
+        msv.num_votes DESC
     LIMIT 100;
 END;
 ' LANGUAGE plpgsql;
