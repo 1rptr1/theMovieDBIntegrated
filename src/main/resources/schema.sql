@@ -114,28 +114,18 @@ CREATE INDEX IF NOT EXISTS idx_movie_search_vector ON movie_search_view USING GI
 -- Functions & Triggers
 -- =====================================
 
+-- Function to refresh materialized view
 DROP FUNCTION IF EXISTS refresh_movie_search();
-CREATE FUNCTION refresh_movie_search()
-RETURNS VOID
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    REFRESH MATERIALIZED VIEW movie_search_view;
-END;
-$$;
+CREATE FUNCTION refresh_movie_search() RETURNS VOID LANGUAGE plpgsql AS $$ BEGIN REFRESH MATERIALIZED VIEW movie_search_view; END; $$;
 
+-- Trigger function wrapper
 DROP FUNCTION IF EXISTS trigger_refresh_movie_search();
-CREATE FUNCTION trigger_refresh_movie_search()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    PERFORM refresh_movie_search();
-    RETURN NULL;
-END;
-$$;
+CREATE FUNCTION trigger_refresh_movie_search() RETURNS TRIGGER LANGUAGE plpgsql AS $$ BEGIN PERFORM refresh_movie_search(); RETURN NULL; END; $$;
 
+-- Drop previous trigger if exists
 DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
+
+-- Create trigger on title_basics
 CREATE TRIGGER refresh_movie_search_after_update
 AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE
 ON title_basics
@@ -147,8 +137,7 @@ EXECUTE FUNCTION trigger_refresh_movie_search();
 -- =====================================
 
 DROP FUNCTION IF EXISTS search_movies(TEXT);
-CREATE FUNCTION search_movies(query TEXT)
-RETURNS TABLE (
+CREATE FUNCTION search_movies(query TEXT) RETURNS TABLE (
     tconst TEXT,
     primary_title TEXT,
     original_title TEXT,
@@ -158,28 +147,18 @@ RETURNS TABLE (
     num_votes INTEGER,
     actors TEXT,
     rank FLOAT
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        msv.tconst,
-        msv.primary_title,
-        msv.original_title,
-        msv.start_year,
-        msv.genres,
-        msv.average_rating,
-        msv.num_votes,
-        msv.actors,
-        ts_rank(msv.search_vector, websearch_to_tsquery('english', query)) AS rank
-    FROM
-        movie_search_view msv
-    WHERE
-        msv.search_vector @@ websearch_to_tsquery('english', query)
-    ORDER BY
-        rank DESC,
-        msv.num_votes DESC
-    LIMIT 100;
-END;
-$$;
+) LANGUAGE plpgsql AS $$ BEGIN RETURN QUERY
+SELECT
+    msv.tconst,
+    msv.primary_title,
+    msv.original_title,
+    msv.start_year,
+    msv.genres,
+    msv.average_rating,
+    msv.num_votes,
+    msv.actors,
+    ts_rank(msv.search_vector, websearch_to_tsquery('english', query)) AS rank
+FROM movie_search_view msv
+WHERE msv.search_vector @@ websearch_to_tsquery('english', query)
+ORDER BY rank DESC, msv.num_votes DESC
+LIMIT 100; END; $$;
