@@ -116,11 +116,11 @@ CREATE INDEX IF NOT EXISTS idx_movie_search_vector ON movie_search_view USING GI
 
 -- Function to refresh materialized view
 CREATE OR REPLACE FUNCTION refresh_movie_search()
-RETURNS VOID AS '
+RETURNS VOID AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW movie_search_view;
 END;
-' LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- Drop trigger first (safe cleanup)
 DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
@@ -130,12 +130,12 @@ DROP FUNCTION IF EXISTS trigger_refresh_movie_search();
 
 -- Recreate trigger function
 CREATE OR REPLACE FUNCTION trigger_refresh_movie_search()
-RETURNS TRIGGER AS '
+RETURNS TRIGGER AS $$
 BEGIN
     PERFORM refresh_movie_search();
     RETURN NULL;
 END;
-' LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- Recreate trigger
 CREATE TRIGGER refresh_movie_search_after_update
@@ -159,7 +159,7 @@ RETURNS TABLE (
     num_votes INTEGER,
     actors TEXT,
     rank FLOAT
-) AS '
+) AS $$
 BEGIN
     RETURN QUERY
     SELECT
@@ -171,14 +171,14 @@ BEGIN
         msv.average_rating,
         msv.num_votes,
         msv.actors,
-        ts_rank(msv.search_vector, websearch_to_tsquery(''english'', query)) AS rank
+        ts_rank(msv.search_vector, websearch_to_tsquery('english', query)) AS rank
     FROM
         movie_search_view msv
     WHERE
-        msv.search_vector @@ websearch_to_tsquery(''english'', query)
+        msv.search_vector @@ websearch_to_tsquery('english', query)
     ORDER BY
         rank DESC,
         msv.num_votes DESC
     LIMIT 100;
 END;
-' LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
