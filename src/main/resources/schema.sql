@@ -125,7 +125,7 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
 
 -- Drop trigger function if exists
-DROP FUNCTION IF EXISTS trigger_refresh_movie_search();
+DROP FUNCTION IF EXISTS trigger_refresh_movie_search() CASCADE;
 
 -- Recreate trigger function
 CREATE OR REPLACE FUNCTION trigger_refresh_movie_search()
