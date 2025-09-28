@@ -115,11 +115,15 @@ CREATE INDEX IF NOT EXISTS idx_movie_search_vector ON movie_search_view USING GI
 -- =====================================
 
 -- Function to refresh materialized view
-CREATE OR REPLACE FUNCTION refresh_movie_search() RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION refresh_movie_search()
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
 BEGIN
-  REFRESH MATERIALIZED VIEW movie_search_view;
+    REFRESH MATERIALIZED VIEW movie_search_view;
 END;
-$$ LANGUAGE plpgsql;
+$$;
+
 
 -- Drop trigger first (safe cleanup)
 DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
