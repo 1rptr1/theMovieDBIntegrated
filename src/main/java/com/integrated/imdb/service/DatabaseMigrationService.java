@@ -139,7 +139,7 @@ public class DatabaseMigrationService {
             jdbcTemplate.update("""
                 INSERT INTO schema_version 
                     (version, description, script, success)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?)
                 """,
                 migration.getVersion(),
                 migration.getDescription(),
