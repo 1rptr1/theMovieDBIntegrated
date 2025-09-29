@@ -124,7 +124,6 @@ BEGIN
 END;
 $$;
 
-
 -- Drop trigger first (safe cleanup)
 DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
 
