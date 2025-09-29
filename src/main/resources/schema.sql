@@ -106,15 +106,23 @@ WHERE
     tb.title_type = 'movie'
 GROUP BY
     tb.tconst, tb.primary_title, tb.original_title,
-    tb.start_year, tb.genres, tr.average_rating, tr.num_votes;
 CREATE INDEX IF NOT EXISTS idx_movie_search_vector ON movie_search_view USING GIN (search_vector);
 
 -- =====================================
 -- Functions & Triggers
 -- =====================================
-
--- Trigger for refreshing materialized view
+-- Function and Trigger for refreshing materialized view
 -- =====================================
+
+-- First, ensure the function exists
+CREATE OR REPLACE FUNCTION refresh_movie_search()
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY movie_search_view;
+END;
+$$;
 
 -- Drop trigger first (safe cleanup)
 DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
