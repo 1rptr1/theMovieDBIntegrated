@@ -91,27 +91,23 @@ SELECT
     setweight(to_tsvector('english', tb.original_title), 'B') || 
     setweight(to_tsvector('english', COALESCE(tb.genres, '')), 'C') || 
     setweight(to_tsvector('english', COALESCE(string_agg(n.primary_name, ' '), '')), 'D') AS search_vector 
-FROM 
-    title_basics tb 
+FROM title_basics tb
     LEFT JOIN title_ratings tr ON tb.tconst = tr.tconst 
     LEFT JOIN title_principals tp ON tb.tconst = tp.tconst 
     LEFT JOIN name_basics n ON tp.nconst = n.nconst 
 WHERE 
     tb.title_type = 'movie' 
-GROUP BY 
-    tb.tconst, 
-    tb.primary_title, 
-    tb.original_title, 
-    tb.start_year, 
-    tb.genres, 
-    tr.average_rating, 
-    tr.num_vote;
+GROUP BY tb.tconst, tb.primary_title, tb.original_title, tb.start_year, tb.genres, tr.average_rating, tr.num_votes;
 
 CREATE INDEX IF NOT EXISTS idx_movie_search_vector ON movie_search_view USING GIN (search_vector);
 
+-- Unique index required for concurrent refresh
+CREATE UNIQUE INDEX IF NOT EXISTS idx_movie_search_tconst 
+ON movie_search_view (tconst);
+
 -- =====================================
 -- Functions & Triggers
--- =====================================
+{{ ... }}
 -- Function and Trigger for refreshing materialized view
 
 -- First, ensure the function exists
