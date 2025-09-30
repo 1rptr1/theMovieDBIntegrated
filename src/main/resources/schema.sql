@@ -85,7 +85,7 @@ SELECT
     tb.start_year, 
     tb.genres, 
     tr.average_rating, 
-    tr.num_vote, 
+    tr.num_votes, 
     string_agg(DISTINCT n.primary_name, ', ' ORDER BY n.primary_name) AS actors, 
     setweight(to_tsvector('english', tb.primary_title), 'A') || 
     setweight(to_tsvector('english', tb.original_title), 'B') || 
