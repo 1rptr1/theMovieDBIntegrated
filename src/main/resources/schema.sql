@@ -74,45 +74,45 @@ CREATE INDEX IF NOT EXISTS idx_user_feedback_movie_id ON user_feedback(movie_id)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE INDEX IF NOT EXISTS idx_title_basics_gin ON title_basics USING GIN (primary_title gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_name_basics_gin ON name_basics USING GIN (primary_name gin_trgm_ops);
-
--- =====================================
 -- Materialized View for Movie Search
 -- =====================================
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS movie_search_view AS
-SELECT
-    tb.tconst,
-    tb.primary_title,
-    tb.original_title,
-    tb.start_year,
-    tb.genres,
-    tr.average_rating,
-    tr.num_votes,
-    string_agg(DISTINCT n.primary_name, ', ' ORDER BY n.primary_name) AS actors,
-    setweight(to_tsvector('english', tb.primary_title), 'A') ||
-    setweight(to_tsvector('english', tb.original_title), 'B') ||
-    setweight(to_tsvector('english', tb.genres), 'C') ||
-    setweight(to_tsvector('english', string_agg(n.primary_name, ' ')), 'D') AS search_vector
-FROM
-    title_basics tb
-LEFT JOIN
-    title_ratings tr ON tb.tconst = tr.tconst
-LEFT JOIN
-    title_principals tp ON tb.tconst = tp.tconst
-LEFT JOIN
-    name_basics n ON tp.nconst = n.nconst
-WHERE
-    tb.title_type = 'movie'
-GROUP BY
-    tb.tconst, tb.primary_title, tb.original_title,
+CREATE MATERIALIZED VIEW IF NOT EXISTS movie_search_view AS 
+SELECT 
+    tb.tconst, 
+    tb.primary_title, 
+    tb.original_title, 
+    tb.start_year, 
+    tb.genres, 
+    tr.average_rating, 
+    tr.num_vote, 
+    string_agg(DISTINCT n.primary_name, ', ' ORDER BY n.primary_name) AS actors, 
+    setweight(to_tsvector('english', tb.primary_title), 'A') || 
+    setweight(to_tsvector('english', tb.original_title), 'B') || 
+    setweight(to_tsvector('english', COALESCE(tb.genres, '')), 'C') || 
+    setweight(to_tsvector('english', COALESCE(string_agg(n.primary_name, ' '), '')), 'D') AS search_vector 
+FROM 
+    title_basics tb 
+    LEFT JOIN title_ratings tr ON tb.tconst = tr.tconst 
+    LEFT JOIN title_principals tp ON tb.tconst = tp.tconst 
+    LEFT JOIN name_basics n ON tp.nconst = n.nconst 
+WHERE 
+    tb.title_type = 'movie' 
+GROUP BY 
+    tb.tconst, 
+    tb.primary_title, 
+    tb.original_title, 
+    tb.start_year, 
+    tb.genres, 
+    tr.average_rating, 
+    tr.num_vote;
+
 CREATE INDEX IF NOT EXISTS idx_movie_search_vector ON movie_search_view USING GIN (search_vector);
 
 -- =====================================
 -- Functions & Triggers
 -- =====================================
 -- Function and Trigger for refreshing materialized view
--- =====================================
 
 -- First, ensure the function exists
 CREATE OR REPLACE FUNCTION refresh_movie_search()
