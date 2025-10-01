@@ -87,9 +87,15 @@ jobs:
         env:
           PGPASSWORD: imdb
 
-      - name: Analyze tables
+      - name: Analyze tables and refresh materialized views
         run: |
+          echo "🔄 Running VACUUM ANALYZE..."
           psql -h localhost -U imdb -d imdb -c "VACUUM ANALYZE;"
+          
+          echo "🔄 Refreshing materialized view..."
+          psql -h localhost -U imdb -d imdb -c "REFRESH MATERIALIZED VIEW CONCURRENTLY movie_search_view;"
+          
+          echo "✅ Database optimization complete"
         env:
           PGPASSWORD: imdb
 
