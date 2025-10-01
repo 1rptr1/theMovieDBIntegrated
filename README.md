@@ -1,16 +1,64 @@
 # The Movie DB Integrated
 
-A Spring Boot application that integrates movie data from multiple sources including a local PostgreSQL database and OMDb API.
+A full-stack movie discovery application with a Spring Boot backend and modern React frontend. Explore movies from the IMDb dataset with intelligent recommendations and beautiful UI.
+
+## 🎬 Features
+
+- **Movie Search** - Search movies by title, actor, genre, or year
+- **Top Rated Movies** - Browse the highest rated movies
+- **Movie Details** - View comprehensive information including plot, cast, ratings, and more
+- **Recommendations** - Get personalized movie recommendations based on your preferences
+- **Modern UI** - Beautiful, responsive dark-themed interface
+- **Real IMDb Data** - Powered by actual IMDb datasets in CI/CD
 
 ## Prerequisites
 
-- Java 17 or higher
+### Backend
+- Java 21 or higher
 - Maven 3.8+
-- Docker and Docker Compose
-- PostgreSQL (if not using Docker)
-- OMDb API key (get it from http://www.omdbapi.com/apikey.aspx)
+- PostgreSQL 15+
 
-## Setup
+### Frontend
+- Node.js 18+
+- npm or yarn
+
+### Optional
+- Docker and Docker Compose
+- OMDb API key (get it from http://www.omdbapi.com/apikey.aspx) for enhanced movie details
+
+## Quick Start
+
+### 1. Start the Backend
+
+```bash
+# Start PostgreSQL (if using Docker)
+docker-compose up -d postgres
+
+# Build and run the Spring Boot application
+mvn clean package
+mvn spring-boot:run
+```
+
+The API will be available at `http://localhost:8080`
+
+### 2. Start the Frontend
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+The UI will be available at `http://localhost:3000`
+
+## Detailed Setup
+
+### Backend Configuration
 
 1. Clone the repository
 2. Copy `.env.example` to `.env` and update the environment variables:
