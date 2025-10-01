@@ -107,7 +107,6 @@ ON movie_search_view (tconst);
 
 -- =====================================
 -- Functions & Triggers
-{{ ... }}
 -- Function and Trigger for refreshing materialized view
 
 -- First, ensure the function exists
