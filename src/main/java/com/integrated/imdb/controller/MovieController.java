@@ -40,6 +40,20 @@ public class MovieController {
         return ResponseEntity.ok(movieService.getTopMoviesByActor(actor, limit));
     }
 
+    @GetMapping
+    @Operation(summary = "Search movies", 
+              description = "Searches movies by title with pagination support")
+    public ResponseEntity<List<MovieDto>> searchMoviesPaginated(
+            @RequestParam(required = false) String title,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        log.info("Searching movies with title: {}, page: {}, size: {}", title, page, size);
+        if (title == null || title.trim().isEmpty()) {
+            return ResponseEntity.ok(movieService.getTopRatedMovies(size));
+        }
+        return ResponseEntity.ok(movieService.searchMoviesByTitle(title, size));
+    }
+
     @GetMapping("/search")
     @Operation(summary = "Search movies by title", 
               description = "Searches movies by title with partial matching")
@@ -48,6 +62,15 @@ public class MovieController {
             @RequestParam(defaultValue = "10") int limit) {
         log.info("Searching movies with query: {}", query);
         return ResponseEntity.ok(movieService.searchMoviesByTitle(query, limit));
+    }
+
+    @GetMapping("/top")
+    @Operation(summary = "Get top movies", 
+              description = "Returns top rated movies")
+    public ResponseEntity<List<MovieDto>> getTopMovies(
+            @RequestParam(defaultValue = "20") int limit) {
+        log.info("Fetching top {} movies", limit);
+        return ResponseEntity.ok(movieService.getTopRatedMovies(limit));
     }
 
     @GetMapping("/top-rated")
