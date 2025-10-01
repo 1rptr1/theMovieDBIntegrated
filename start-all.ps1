@@ -43,7 +43,7 @@ Write-Host "✅ All prerequisites found!" -ForegroundColor Green
 # Start PostgreSQL
 Write-Host "📊 Starting PostgreSQL database..." -ForegroundColor Cyan
 try {
-    docker-compose up -d postgres
+    docker-compose up -d db
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ PostgreSQL started" -ForegroundColor Green
     } else {
@@ -85,7 +85,7 @@ try {
         Start-Sleep -Seconds 2
         $waited += 2
 
-        if ($waited -mod 10 -eq 0) {
+        if ($waited % 10 -eq 0) {
             Write-Host "⏳ Still waiting for API... ($waited seconds)" -ForegroundColor Cyan
         }
     }

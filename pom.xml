@@ -25,6 +25,7 @@
     <groupId>com.integrated</groupId>
     <artifactId>theMovieDBIntegrated</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+    <packaging>war</packaging>
     <name>theMovieDBIntegrated</name>
     <description>Unified IMDB API + Suggestor backend</description>
 
@@ -101,6 +102,14 @@
                     <compilerArgs>
                         <arg>-parameters</arg>
                     </compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.4.0</version>
+                <configuration>
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
                 </configuration>
             </plugin>
         </plugins>

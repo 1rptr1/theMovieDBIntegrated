@@ -13,7 +13,7 @@ console.log('🚀 Starting IMDb Movie Explorer...\n')
 
 // Start PostgreSQL
 console.log('📊 Starting PostgreSQL database...')
-const postgresProcess = spawn(isWindows ? 'docker-compose' : 'docker-compose', ['up', '-d', 'postgres'], {
+const postgresProcess = spawn(isWindows ? 'docker-compose' : 'docker-compose', ['up', '-d', 'db'], {
   cwd: join(__dirname, '..'),
   stdio: 'pipe',
   shell: isWindows

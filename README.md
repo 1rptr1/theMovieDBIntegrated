@@ -81,17 +81,13 @@ The UI will be available at `http://localhost:3000`
 
 1. Start PostgreSQL database:
    ```bash
-   docker-compose up -d postgres
+   docker-compose up -d db
    ```
 
-2. Build the application:
+2. Build and run the application as WAR:
    ```bash
    mvn clean package
-   ```
-
-3. Run the application:
-   ```bash
-   java -jar target/*.jar
+   java -jar target/theMovieDBIntegrated-0.0.1-SNAPSHOT.war
    ```
 
 ## API Documentation
@@ -130,9 +126,11 @@ The application will automatically initialize the database schema and load initi
 mvn clean package
 ```
 
-### Running Tests
+This creates a WAR file at `target/theMovieDBIntegrated-0.0.1-SNAPSHOT.war`
+
+### Running
 ```bash
-mvn test
+java -jar target/theMovieDBIntegrated-0.0.1-SNAPSHOT.war
 ```
 
 ### Code Style
@@ -143,7 +141,32 @@ mvn spotless:apply
 
 ## Deployment
 
-The application is configured to be deployed as a Docker container. You can build and push the Docker image using the provided GitHub Actions workflow.
+The application is packaged as a WAR file and can be deployed to:
+
+- **Tomcat** (recommended for production)
+- **Jetty**
+- **WildFly**
+- **WebLogic**
+- **WebSphere**
+- Or any servlet container
+
+### Docker Deployment
+```bash
+docker-compose up --build
+```
+
+The Docker configuration includes:
+- **PostgreSQL Database** - Stores movie data and user preferences
+- **Spring Boot WAR** - Deployed to Tomcat servlet container
+- **React Frontend** - Production build served by nginx
+
+All services communicate via Docker network:
+- Frontend (port 3000) → API (port 8080) → Database (port 5432)
+
+### Manual Deployment
+1. Build the WAR: `mvn clean package`
+2. Deploy `target/theMovieDBIntegrated-0.0.1-SNAPSHOT.war` to your servlet container
+3. Configure environment variables for database connection and OMDb API key
 
 ## License
 

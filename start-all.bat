@@ -34,33 +34,34 @@ if errorlevel 1 (
     echo    Please install Maven 3.8 or higher
     echo.
     pause
-    exit /b 1
 )
 
 echo ✅ All prerequisites found!
 echo.
 
-REM Start PostgreSQL
-echo 📊 Starting PostgreSQL database...
-docker-compose up -d postgres
+REM Build frontend for production
+echo 🎨 Building React frontend...
+cd frontend
+npm run build
 if errorlevel 1 (
-    echo ❌ Failed to start PostgreSQL
+    echo ❌ Failed to build frontend
+    cd ..
     pause
     exit /b 1
 )
-echo ✅ PostgreSQL started
+cd ..
+echo ✅ Frontend built successfully
 echo.
 
-REM Wait for database
-echo ⏳ Waiting for database to be ready...
-timeout /t 10 /nobreak > nul
-echo ✅ Database should be ready
-echo.
-
-REM Start Spring Boot in background
-echo 🔧 Starting Spring Boot API...
-start "IMDb Backend" cmd /k "mvn spring-boot:run"
-echo ✅ Backend starting in new window
+REM Build the application as WAR
+echo 🔧 Building Spring Boot application (WAR)...
+mvn clean package
+if errorlevel 1 (
+    echo ❌ Failed to build application
+    pause
+    exit /b 1
+)
+echo ✅ Application built successfully
 echo.
 
 REM Wait for backend to be ready
@@ -126,5 +127,9 @@ echo    4. Click a movie card to see details
 echo.
 echo 🛑 To stop all services, close all console windows
 echo.
-echo Press any key to exit this script...
-pause >nul
+REM Display Docker deployment option
+echo.
+echo 🐳 DOCKER DEPLOYMENT AVAILABLE:
+echo    Run 'docker-compose up --build' for containerized deployment
+echo    This includes: PostgreSQL + Spring Boot WAR + React Frontend
+echo.

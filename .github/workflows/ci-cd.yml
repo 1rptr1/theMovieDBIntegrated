@@ -102,7 +102,7 @@ jobs:
       - name: Build and run API
         run: |
           mvn -B package --file pom.xml -DskipTests
-          nohup mvn spring-boot:run -Dspring-boot.run.profiles=ci > /tmp/app.log 2>&1 &
+          nohup java -jar target/theMovieDBIntegrated-0.0.1-SNAPSHOT.war > /tmp/app.log 2>&1 &
 
           echo "⏳ Waiting for API to start..."
           for i in {1..30}; do

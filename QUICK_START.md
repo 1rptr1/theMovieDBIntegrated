@@ -24,25 +24,17 @@ start-dev.bat
 cd frontend
 npm install  # first time only
 npm run dev
-```
-
 ### Option B: Manual Start
 
 **Terminal 1 - Database:**
 ```bash
-docker-compose up postgres
+docker-compose up -d db
 ```
 
 **Terminal 2 - Backend:**
 ```bash
-mvn spring-boot:run
-```
-
-**Terminal 3 - Frontend:**
-```bash
-cd frontend
-npm install  # first time only
-npm run dev
+mvn clean package
+java -jar target/theMovieDBIntegrated-0.0.1-SNAPSHOT.war
 ```
 
 ## Access Points
@@ -96,34 +88,33 @@ npm run build
 npm run preview
 ```
 
-### Database
+### Docker Compose Commands
 ```bash
-# Start
-docker-compose up -d postgres
+# Start only database
+docker-compose up -d db
 
-# Stop
-docker-compose stop postgres
+# Start everything (db + app)
+docker-compose up --build
+
+# Stop everything
+docker-compose down
 
 # View logs
-docker-compose logs postgres
-
-# Reset (WARNING: Deletes all data)
-docker-compose down -v
-docker-compose up -d postgres
+docker-compose logs db
+docker-compose logs app
 ```
 
-## Troubleshooting One-Liners
 
 ```bash
 # Kill port 8080 (backend)
 npx kill-port 8080
 
-# Kill port 3000 (frontend)
+# Kill process on port 3000 (frontend)
 npx kill-port 3000
 
 # Restart everything
-docker-compose restart
-mvn spring-boot:run  # in one terminal
+docker-compose restart db
+java -jar target/theMovieDBIntegrated-0.0.1-SNAPSHOT.war  # in one terminal
 npm run dev          # in another terminal (from frontend/)
 
 # Check if services are running
@@ -140,6 +131,17 @@ theMovieDBIntegrated/
 │   ├── main/resources/    # Config & SQL files
 │   └── test/              # Tests
 ├── frontend/              # Frontend application
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── App.jsx       # Main app
+│   │   └── main.jsx      # Entry point
+│   ├── package.json      # Dependencies
+│   └── vite.config.js    # Vite config
+├── .github/workflows/     # CI/CD pipelines
+├── docker-compose.yml     # Docker setup
+├── pom.xml               # Maven config (WAR packaging)
+└── target/               # Build output (WAR file)
+```
 │   ├── src/
 │   │   ├── components/   # React components
 │   │   ├── App.jsx       # Main app
