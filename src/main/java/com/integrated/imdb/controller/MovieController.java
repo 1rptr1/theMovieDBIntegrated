@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/movies")
+@RequestMapping("/movies")
 @Tag(name = "Movie API", description = "Endpoints for movie discovery and recommendations")
 public class MovieController {
 
