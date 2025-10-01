@@ -2,7 +2,6 @@ package com.integrated.imdb.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
@@ -147,7 +146,6 @@ public class DatabaseInitializer implements CommandLineRunner {
         StringBuilder currentStatement = new StringBuilder();
         boolean inDollarQuote = false;
         String dollarQuoteTag = null;
-        boolean inSingleLineComment = false;
         boolean inMultiLineComment = false;
         
         String[] lines = script.split("\n");

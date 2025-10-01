@@ -109,7 +109,12 @@ ON movie_search_view (tconst);
 -- Functions & Triggers
 -- Function and Trigger for refreshing materialized view
 
--- First, ensure the function exists
+-- Drop existing functions first (safe cleanup)
+DROP FUNCTION IF EXISTS refresh_movie_search() CASCADE;
+DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
+DROP FUNCTION IF EXISTS trigger_refresh_movie_search() CASCADE;
+
+-- Create refresh function
 CREATE OR REPLACE FUNCTION refresh_movie_search()
 RETURNS VOID
 LANGUAGE plpgsql
@@ -118,12 +123,6 @@ BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY movie_search_view;
 END;
 $$;
-
--- Drop trigger first (safe cleanup)
-DROP TRIGGER IF EXISTS refresh_movie_search_after_update ON title_basics;
-
--- Drop trigger function if exists
-DROP FUNCTION IF EXISTS trigger_refresh_movie_search() CASCADE;
 
 -- Create trigger function
 CREATE OR REPLACE FUNCTION trigger_refresh_movie_search()
