@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
  * This runs after the application context is loaded but before the application starts.
  */
 @Component
-@Profile("!test") // Don't run during tests
+@Profile({"!test", "!ci"}) // Don't run during tests or CI (CI loads data separately)
 public class DatabaseInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseInitializer.class);
