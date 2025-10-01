@@ -1,4 +1,10 @@
 -- ===========================================
+-- Extensions (must be created first)
+-- ===========================================
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- ===========================================
 -- Create tables for IMDB data
 -- ===========================================
 
@@ -92,11 +98,6 @@ CREATE INDEX IF NOT EXISTS idx_title_crew_writers_gin
 
 CREATE INDEX IF NOT EXISTS idx_title_crew_directors_gin
     ON title_crew USING gin (directors gin_trgm_ops);
--- ===========================================
--- Extensions
--- ===========================================
-
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ===========================================
 -- Full-text search indexes
