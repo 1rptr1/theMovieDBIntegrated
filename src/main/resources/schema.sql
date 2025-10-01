@@ -2,6 +2,14 @@
 -- IMDB Tables
 -- =====================================
 
+-- Drop existing tables to ensure clean recreation
+DROP TABLE IF EXISTS user_feedback CASCADE;
+DROP TABLE IF EXISTS user_preferences CASCADE;
+DROP TABLE IF EXISTS title_ratings CASCADE;
+DROP TABLE IF EXISTS title_principals CASCADE;
+DROP TABLE IF EXISTS title_basics CASCADE;
+DROP TABLE IF EXISTS name_basics CASCADE;
+
 CREATE TABLE IF NOT EXISTS name_basics (
     nconst TEXT PRIMARY KEY,
     primary_name TEXT,
