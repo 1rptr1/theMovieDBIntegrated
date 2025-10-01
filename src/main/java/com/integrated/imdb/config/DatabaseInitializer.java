@@ -13,10 +13,17 @@ import org.springframework.boot.actuate.health.Status;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Component responsible for initializing the database with required schema and data.
@@ -90,7 +97,24 @@ public class DatabaseInitializer implements CommandLineRunner {
             conn.setAutoCommit(false);
             
             try {
-                ScriptUtils.executeSqlScript(conn, resource);
+                // Read the entire script content
+                String scriptContent = readScriptContent(resource);
+                
+                // Split into statements, respecting dollar-quoted strings
+                List<String> statements = splitSqlStatements(scriptContent);
+                
+                // Execute each statement
+                try (Statement stmt = conn.createStatement()) {
+                    for (int i = 0; i < statements.size(); i++) {
+                        String sql = statements.get(i).trim();
+                        if (!sql.isEmpty()) {
+                            log.debug("Executing statement #{}: {}", i + 1, 
+                                sql.length() > 100 ? sql.substring(0, 100) + "..." : sql);
+                            stmt.execute(sql);
+                        }
+                    }
+                }
+                
                 conn.commit();
                 log.info("Successfully executed SQL script: {}", scriptName);
             } catch (Exception e) {
@@ -104,6 +128,112 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.error("Database error while executing script: {}", scriptName, e);
             throw new RuntimeException("Database error while executing script: " + scriptName, e);
         }
+    }
+    
+    private String readScriptContent(Resource resource) throws Exception {
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+        }
+        return content.toString();
+    }
+    
+    private List<String> splitSqlStatements(String script) {
+        List<String> statements = new ArrayList<>();
+        StringBuilder currentStatement = new StringBuilder();
+        boolean inDollarQuote = false;
+        String dollarQuoteTag = null;
+        boolean inSingleLineComment = false;
+        boolean inMultiLineComment = false;
+        
+        String[] lines = script.split("\n");
+        
+        for (String line : lines) {
+            // Handle single-line comments
+            if (line.trim().startsWith("--")) {
+                continue;
+            }
+            
+            int i = 0;
+            while (i < line.length()) {
+                char c = line.charAt(i);
+                
+                // Check for multi-line comment start
+                if (!inDollarQuote && i < line.length() - 1 && c == '/' && line.charAt(i + 1) == '*') {
+                    inMultiLineComment = true;
+                    i += 2;
+                    continue;
+                }
+                
+                // Check for multi-line comment end
+                if (inMultiLineComment && i < line.length() - 1 && c == '*' && line.charAt(i + 1) == '/') {
+                    inMultiLineComment = false;
+                    i += 2;
+                    continue;
+                }
+                
+                // Skip if in comment
+                if (inMultiLineComment) {
+                    i++;
+                    continue;
+                }
+                
+                // Check for dollar quote
+                if (c == '$') {
+                    // Try to match a dollar quote tag
+                    Pattern pattern = Pattern.compile("\\$([a-zA-Z_]*)\\$");
+                    Matcher matcher = pattern.matcher(line.substring(i));
+                    if (matcher.find() && matcher.start() == 0) {
+                        String tag = matcher.group(0);
+                        if (inDollarQuote) {
+                            // Check if this closes the current dollar quote
+                            if (tag.equals(dollarQuoteTag)) {
+                                inDollarQuote = false;
+                                dollarQuoteTag = null;
+                            }
+                        } else {
+                            // Start a new dollar quote
+                            inDollarQuote = true;
+                            dollarQuoteTag = tag;
+                        }
+                        currentStatement.append(tag);
+                        i += tag.length();
+                        continue;
+                    }
+                }
+                
+                // Check for statement terminator (semicolon)
+                if (!inDollarQuote && c == ';') {
+                    currentStatement.append(c);
+                    String stmt = currentStatement.toString().trim();
+                    if (!stmt.isEmpty()) {
+                        statements.add(stmt);
+                    }
+                    currentStatement = new StringBuilder();
+                    i++;
+                    continue;
+                }
+                
+                // Add character to current statement
+                currentStatement.append(c);
+                i++;
+            }
+            
+            // Add newline to preserve formatting
+            currentStatement.append("\n");
+        }
+        
+        // Add any remaining statement
+        String stmt = currentStatement.toString().trim();
+        if (!stmt.isEmpty()) {
+            statements.add(stmt);
+        }
+        
+        return statements;
     }
     
     private void verifyDatabaseHealth() {
