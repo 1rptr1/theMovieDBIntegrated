@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     unzip \
     postgresql-client \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -29,6 +30,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     postgresql-client \
     curl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Remove default ROOT application
@@ -53,7 +55,7 @@ COPY src/main/resources/db/migration/V1__Initial_Schema.sql /app/data/
 RUN chmod +x /usr/local/tomcat/webapps/ROOT.war
 RUN chmod +x /docker-entrypoint-initdb.d/*
 
-# Create startup script
+# Create startup script for PostgreSQL
 RUN echo '#!/bin/bash\n\
 # Start PostgreSQL\n\
 echo "Starting PostgreSQL..."\n\
@@ -62,13 +64,25 @@ POSTGRES_PID=$!\n\
 \n\
 # Wait for PostgreSQL to be ready\n\
 echo "Waiting for PostgreSQL..."\n\
-sleep 15\n\
+for i in {1..30}; do\n\
+    if pg_isready -h localhost -U postgres >/dev/null 2>&1; then\n\
+        echo "PostgreSQL is ready!"\n\
+        break\n\
+    fi\n\
+    echo "Waiting for PostgreSQL... ($i/30)"\n\
+    sleep 2\n\
+done\n\
+\n\
+# Create database user and database\n\
+echo "Setting up database..."\n\
+psql -h localhost -U postgres -c "CREATE USER IF NOT EXISTS imdb WITH PASSWORD '\''imdb'\'';" 2>/dev/null || true\n\
+psql -h localhost -U postgres -c "CREATE DATABASE IF NOT EXISTS imdb OWNER imdb;" 2>/dev/null || true\n\
 \n\
 # Initialize database if needed\n\
 echo "Checking database setup..."\n\
-if ! psql -h localhost -U postgres -d imdb -c "SELECT 1 FROM title_basics LIMIT 1" >/dev/null 2>&1; then\n\
+if ! psql -h localhost -U imdb -d imdb -c "SELECT 1 FROM title_basics LIMIT 1" >/dev/null 2>&1; then\n\
     echo "Loading database schema..."\n\
-    psql -h localhost -U postgres -d imdb -f /app/data/V1__Initial_Schema.sql\n\
+    psql -h localhost -U imdb -d imdb -f /app/data/V1__Initial_Schema.sql\n\
     echo "Loading sample data..."\n\
     psql -h localhost -U imdb -d imdb -f /app/data/data.sql\n\
     echo "Database initialized with sample data"\n\
@@ -82,12 +96,10 @@ wait $POSTGRES_PID\n\
 
 RUN chmod +x /app/start-postgres.sh
 
-# Expose ports
-EXPOSE 5432 8080
-
-# Create entrypoint script
+# Create main startup script
 RUN echo '#!/bin/bash\n\
-echo "Starting IMDb Movie Explorer..."\n\
+echo "🚀 Starting IMDb Movie Explorer..."\n\
+echo "=================================="\n\
 \n\
 # Start PostgreSQL in background\n\
 /app/start-postgres.sh &\n\
@@ -96,18 +108,25 @@ echo "Starting IMDb Movie Explorer..."\n\
 sleep 5\n\
 \n\
 # Start Tomcat\n\
-echo "Starting Tomcat..."\n\
+echo "🔥 Starting Tomcat..."\n\
 cd /usr/local/tomcat\n\
-bin/catalina.sh run\n\
+exec bin/catalina.sh run\n\
 ' > /app/start.sh
 
 RUN chmod +x /app/start.sh
+
+# Expose ports
+EXPOSE 5432 8080
 
 # Switch to appuser
 USER appuser
 
 # Set working directory
 WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/api/movies/health || exit 1
 
 # Use the startup script as entrypoint
 ENTRYPOINT ["/app/start.sh"]
