@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # Complete application with embedded data
+  movie-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.full
+    container_name: imdb-movie-explorer
+    ports:
+      - "8080:8080"   # Tomcat
+      - "5432:5432"   # PostgreSQL
+    environment:
+      POSTGRES_DB: imdb
+      POSTGRES_USER: imdb
+      POSTGRES_PASSWORD: imdb
+      OMDB_API_KEY: ${OMDB_API_KEY:-your-api-key}
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/movies/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Optional: External PostgreSQL for larger datasets
+  postgres-external:
+    image: postgres:15-alpine
+    container_name: imdb-postgres-external
+    environment:
+      POSTGRES_DB: imdb
+      POSTGRES_USER: imdb
+      POSTGRES_PASSWORD: imdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    command: [
+      "postgres",
+      "-c", "shared_buffers=1GB",
+      "-c", "work_mem=128MB",
+      "-c", "maintenance_work_mem=1GB",
+      "-c", "max_wal_size=4GB"
+    ]
+    profiles: ["external-db"]
+
+volumes:
+  postgres_data:
